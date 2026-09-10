@@ -1,6 +1,14 @@
 @import "tailwindcss";
+@import "./styles/shared.css";
 
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Layer priority declaration: tokens < base < components < utilities */
+@layer tokens, base, components, utilities;
+
+@layer tokens {
+  /* Token layer: namespace definitions consumed by components/utilities */
+}
 
 @theme {
   --text: #6b6375;
@@ -11,8 +19,34 @@
   --accent: #aa3bff;
   --accent-bg: rgba(170, 59, 255, 0.1);
   --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
   --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+
+  /* Namespace font tokens (closed loop via var(--)) */
+  --font-display: var(--heading);
+  --font-body: var(--sans);
+  --font-mono: var(--mono);
+
+  /* Namespace color tokens */
+  --color-brand-50: #f5f0ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-500: #aa3bff;
+  --color-brand-700: #7c3aed;
+  --color-brand-900: #4c1d95;
+  --color-neutral-50: #f9fafb;
+  --color-neutral-100: #f3f4f6;
+  --color-neutral-500: #6b7280;
+  --color-neutral-900: #111827;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-destructive: #ef4444;
+
+  /* Namespace radius tokens */
+  --radius-card: 12px;
+  --radius-button: 8px;
+  --radius-input: 6px;
+
+  /* Namespace shadow tokens */
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.08);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -32,9 +66,17 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* TODO(T5): 收敛到 lg: 断点，当前保留 max-width:1024px 降级；新增 lg: 收敛注释（不删旧 media） */
   @media (max-width: 1024px) {
     :root {
       font-size: 16px;
+    }
+  }
+
+  /* T5 lg: 收敛 — 响应式断点收敛到 lg（1024px+ 保持大屏字体，md 以下降级） */
+  @media (min-width: 1024px) {
+    :root {
+      font-size: 18px;
     }
   }
 
@@ -107,8 +149,91 @@
     padding: 4px 8px;
     background: var(--code-bg);
   }
+
+  /* Focus-visible accessibility */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Stable scrollbar gutter */
+  html {
+    scrollbar-gutter: stable;
+  }
 }
 
+@layer components {
+  /* Canonical component classes live in src/styles/shared.css (@utility).
+     This layer shell is kept for explicit layer ordering only. */
+}
+
+@layer utilities {
+  /* Utility-level namespace token references */
+  .text-brand { color: var(--color-brand-500); }
+  .text-success { color: var(--color-success); }
+  .text-warning { color: var(--color-warning); }
+  .text-destructive { color: var(--color-destructive); }
+  .bg-brand { background-color: var(--color-brand-500); }
+  .font-display { font-family: var(--font-display); }
+  .font-body { font-family: var(--font-body); }
+  .font-mono { font-family: var(--font-mono); }
+
+  /* T7: pure CSS animation utilities (opacity/transform only) */
+  .animate-fade-in {
+    animation: fade-in 250ms ease-out both;
+  }
+  .animate-slide-up {
+    animation: slide-up 250ms ease-out both;
+  }
+  .animate-fade-slide-up {
+    animation: fade-slide-up 300ms ease-out both;
+  }
+}
+
+/* T7: pure CSS keyframes — opacity/transform only (no layout properties) */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Stage 2: system preference fallback — only when no explicit data-theme choice exists */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --text: #9ca3af;
+    --text-h: #f3f4f6;
+    --bg: #16171d;
+    --border: #2e303a;
+    --code-bg: #1f2028;
+    --accent: #c084fc;
+    --accent-bg: rgba(192, 132, 252, 0.15);
+    --accent-border: rgba(192, 132, 252, 0.5);
+    --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  }
+}
+
+/* Stage 1: manual override via data-theme (higher specificity, overrides stage2) */
 [data-theme='dark'] {
   --text: #9ca3af;
   --text-h: #f3f4f6;
@@ -118,7 +243,6 @@
   --accent: #c084fc;
   --accent-bg: rgba(192, 132, 252, 0.15);
   --accent-border: rgba(192, 132, 252, 0.5);
-  --social-bg: rgba(47, 48, 58, 0.5);
   --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
 }
 
