@@ -3,6 +3,7 @@ import type { ParentProps } from 'solid-js'
 import { Route, Router } from '@solidjs/router'
 import { AppProviders } from './stores/providers.tsx'
 import { AuthGuard } from './routes/_components/AuthGuard.tsx'
+import { AuthLayout } from './routes/_components/AuthLayout.tsx'
 import { Layout } from './routes/_components/Layout.tsx'
 
 const Home = lazy(() => import('./routes/pages/Home.tsx'))
@@ -40,9 +41,23 @@ function AppError(err: Error, reset: () => void) {
 
 function Root(props: ParentProps) {
   return (
+    <Suspense fallback={<PageLoading />}>{props.children}</Suspense>
+  )
+}
+
+function MainLayout(props: ParentProps) {
+  return (
     <Layout>
       <Suspense fallback={<PageLoading />}>{props.children}</Suspense>
     </Layout>
+  )
+}
+
+function LoginLayout(props: ParentProps) {
+  return (
+    <AuthLayout>
+      <Suspense fallback={<PageLoading />}>{props.children}</Suspense>
+    </AuthLayout>
   )
 }
 
@@ -51,10 +66,14 @@ function App() {
     <ErrorBoundary fallback={AppError}>
       <AppProviders>
         <Router root={Root}>
-          <Route path="/" component={Home} />
-          <Route path="/login" component={Login} />
-          <Route path="/dashboard" component={DashboardRoute} />
-          <Route path="*404" component={NotFound} />
+          <Route component={MainLayout}>
+            <Route path="/" component={Home} />
+            <Route path="/dashboard" component={DashboardRoute} />
+            <Route path="*404" component={NotFound} />
+          </Route>
+          <Route component={LoginLayout}>
+            <Route path="/login" component={Login} />
+          </Route>
         </Router>
       </AppProviders>
     </ErrorBoundary>

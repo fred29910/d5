@@ -19,8 +19,8 @@ export default function Login() {
   }
 
   return (
-    <section class="flex items-center justify-center">
-      <div class="mx-auto max-w-sm rounded-xl border border-gray-200 dark:border-white/10 p-6 shadow-sm bg-white dark:bg-white/5 space-y-4">
+    <section class="flex w-full items-center justify-center">
+      <div class="mx-auto w-full max-w-sm rounded-xl border border-gray-200 dark:border-white/10 p-6 shadow-sm bg-white dark:bg-white/5 space-y-4">
         <h1 class="text-2xl font-medium tracking-tight text-gray-950 dark:text-gray-50">Login</h1>
         <form onSubmit={onSubmit} class="space-y-4">
           <div>
