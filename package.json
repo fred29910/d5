@@ -6,15 +6,24 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@solid-primitives/context": "^0.3.2",
+    "@solid-primitives/storage": "^4.4.0",
+    "@solidjs/router": "^1.0.0",
     "solid-js": "^1.9.15"
   },
   "devDependencies": {
+    "@solidjs/testing-library": "^0.8.10",
     "@types/node": "^24.13.3",
+    "jsdom": "^30.0.1",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
-    "vite-plugin-solid": "^2.11.14"
+    "vite-plugin-solid": "^2.11.14",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^5.0.0"
   }
 }
