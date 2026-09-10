@@ -19,15 +19,19 @@ function DashboardRoute() {
 }
 
 function PageLoading() {
-  return <p>Loading…</p>
+  return <p class="p-8 text-center text-sm text-gray-500">Loading…</p>
 }
 
 function AppError(err: Error, reset: () => void) {
   return (
-    <div>
-      <h1>Something went wrong</h1>
-      <p>{err.message}</p>
-      <button type="button" onClick={reset}>
+    <div class="mx-auto max-w-md p-8 text-center space-y-3">
+      <h1 class="text-xl font-medium text-gray-950 dark:text-gray-50">Something went wrong</h1>
+      <p class="text-gray-600 dark:text-gray-400">{err.message}</p>
+      <button
+        type="button"
+        onClick={reset}
+        class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+      >
         Try again
       </button>
     </div>

@@ -19,33 +19,41 @@ export default function Login() {
   }
 
   return (
-    <section>
-      <h1>Login</h1>
-      <form onSubmit={onSubmit}>
-        <label>
-          Email
-          <input
-            type="email"
-            required
-            value={email()}
-            onInput={(e) => {
-              setEmail(e.currentTarget.value)
-            }}
-          />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            required
-            value={password()}
-            onInput={(e) => {
-              setPassword(e.currentTarget.value)
-            }}
-          />
-        </label>
-        <Button type="submit">Sign in</Button>
-      </form>
+    <section class="flex items-center justify-center">
+      <div class="mx-auto max-w-sm rounded-xl border border-gray-200 dark:border-white/10 p-6 shadow-sm bg-white dark:bg-white/5 space-y-4">
+        <h1 class="text-2xl font-medium tracking-tight text-gray-950 dark:text-gray-50">Login</h1>
+        <form onSubmit={onSubmit} class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-950 dark:text-gray-50">
+              Email
+            </label>
+            <input
+              type="email"
+              required
+              value={email()}
+              onInput={(e) => {
+                setEmail(e.currentTarget.value)
+              }}
+              class="mt-1 w-full rounded-md border border-gray-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-gray-950 dark:text-gray-50 placeholder:text-gray-400 focus:outline-2 focus:outline-indigo-600"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-950 dark:text-gray-50">
+              Password
+            </label>
+            <input
+              type="password"
+              required
+              value={password()}
+              onInput={(e) => {
+                setPassword(e.currentTarget.value)
+              }}
+              class="mt-1 w-full rounded-md border border-gray-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-gray-950 dark:text-gray-50 placeholder:text-gray-400 focus:outline-2 focus:outline-indigo-600"
+            />
+          </div>
+          <Button type="submit" class="w-full">Sign in</Button>
+        </form>
+      </div>
     </section>
   )
 }

@@ -18,17 +18,17 @@ export function Layout(props: ParentProps) {
   })
 
   return (
-    <div class="shell">
-      <nav class="topnav">
-        <A href="/" end>
+    <div class="min-h-svh flex flex-col bg-white text-gray-600 dark:bg-[#16171d] dark:text-gray-400">
+      <nav class="sticky top-0 z-10 flex items-center gap-4 border-b border-gray-200 dark:border-white/10 bg-white/80 dark:bg-[#16171d]/80 backdrop-blur px-4 py-3">
+        <A href="/" end class="font-semibold text-gray-950 dark:text-gray-50">
           {import.meta.env.VITE_APP_NAME}
         </A>
-        <A href="/dashboard">Dashboard</A>
-        <A href="/login">Login</A>
-        <span class="spacer" />
+        <A href="/dashboard" class="text-sm hover:text-gray-950 dark:hover:text-white">Dashboard</A>
+        <A href="/login" class="text-sm hover:text-gray-950 dark:hover:text-white">Login</A>
+        <span class="flex-1" />
         <button
           type="button"
-          class="btn ghost"
+          class="bg-transparent border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 text-inherit rounded-md px-3 py-1.5 text-sm transition-colors"
           onClick={() =>
             theme.setTheme(theme.theme() === 'dark' ? 'light' : 'dark')
           }
@@ -36,6 +36,7 @@ export function Layout(props: ParentProps) {
           {theme.theme() === 'dark' ? '☀' : '☾'}
         </button>
         <select
+          class="rounded-md border border-gray-200 dark:border-white/10 bg-transparent text-sm px-2 py-1"
           value={i18n.state.locale}
           onChange={(e) => {
             i18n.setLocale(e.currentTarget.value)
@@ -45,7 +46,7 @@ export function Layout(props: ParentProps) {
           <option value="zh">中文</option>
         </select>
       </nav>
-      <main>{props.children}</main>
+      <main class="mx-auto w-full max-w-[1126px] flex-1 px-4 py-8">{props.children}</main>
     </div>
   )
 }

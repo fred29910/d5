@@ -13,15 +13,15 @@ export default function Dashboard() {
   }
 
   return (
-    <section>
-      <h1>Dashboard</h1>
+    <section class="space-y-4">
+      <h1 class="text-2xl font-medium tracking-tight text-gray-950 dark:text-gray-50">Dashboard</h1>
       <Show
         when={auth.state.user}
-        fallback={<p>No user session (should not happen behind guard).</p>}
+        fallback={<p class="text-gray-600 dark:text-gray-400">No user session (should not happen behind guard).</p>}
       >
         {(user) => (
-          <p>
-            Signed in as {user().name} ({user().email})
+          <p class="text-gray-600 dark:text-gray-400">
+            Signed in as <span class="font-medium text-gray-950 dark:text-gray-50">{user().name}</span> ({user().email})
           </p>
         )}
       </Show>
