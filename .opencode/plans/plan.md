@@ -1,354 +1,196 @@
-# Plan: SolidJS+Vite+TS Production Architecture (ulw) — d5 repo
+# Plan: SolidJS + Tailwind v4.3.3 — B+C Style Architecture Optimization
 
-## Context
-Repo: /mnt/data/dsv/dtrawd/d5 | Template: solid-js ^1.9.15 + vite + ts (bun.lock) | No router/store/api/test/env | Notepad contract /tmp/ulw-20260910-arch.md (S1 happy GET /api/health; S2 edge store persistence/reconcile; S3 regression: #/404 renders NotFound, #/dashboard unauth -> /login, build exit 0). Existing strict flags preserved: noUnusedLocals/noUnusedParameters/erasableSyntaxOnly/verbatimModuleSyntax/jsx:preserve+jsxImportSource solid-js; strict NOT explicitly on (preserve). All imports must use `import type` due to `verbatimModuleSyntax`. LOC ceiling: 250/file. TDD orientation (RED -> GREEN). No commits. Category + skills + dependency + parallel waves required.
+Project: `/mnt/data/dsv/dtrawd/d5` (SolidJS 1.9.15, Tailwind v4.3.3, Vite 8.2.2)
+Plan Mode: READ-ONLY (zero edits). TDD-oriented: verify-first, change-second, verify-after.
+Plan written in English (user requirement met).
 
-Assumptions (from user spec): add `@solidjs/router`, `@solid-primitives/storage`, `vitest` (+ `@solidjs/testing-library` optional for component tests). Keep strict OFF. TDD: vitest for api/store; manual curl + agent-browser for S3 UI regression.
+---
 
-## Task Dependency Graph
+## Context & Current State (Verified by Direct File Read + Background Agent)
 
-| Task | Depends On | Reason |
-|------|------------|--------|
-| W0.1 Vite+alias+env | None | Foundation |
-| W0.2 tsconfig paths | W0.1 | Needs vite alias match |
-| W0.3 .env/.env.example/env.d.ts | W0.1 | Needs VITE_ types |
-| W1.1 api/types.ts | W0.3 | Reads env types |
-| W1.2 api/client.ts | W1.1 | Uses response types |
-| W1.3 api tests (RED->GREEN) | W1.2 | TDD cycle |
-| W2.1 app store | W1.1, W0.3 | Consumes api types/env |
-| W2.2 auth store (persist) | W2.1, W0.3 | Uses makePersisted/storage |
-| W2.3 theme store (persist) | W2.2 | Shared persistence pattern |
-| W2.4 i18n store | W2.3 | Uses same provider structure |
-| W2.5 providers + hooks | W2.1-W2.4 | Integrates all stores |
-| W2.6 store tests (S2) | W2.1-W2.5 | TDD RED->GREEN |
-| W3.1 routes/index (Router+lazy) | W2.5 | Needs providers/context |
-| W3.2 AuthGuard | W2.2 | Uses auth store |
-| W3.3 Layout | W2.3, W2.4 | Theme/i18n |
-| W3.4 NotFound / Error pages | W3.1 | Route definitions |
-| W3.5 App.tsx (Router+providers) | W3.1-W3.4 | Replaces counter |
-| W3.6 index.tsx providers wrap | W3.5 | Mount order |
-| W4.1 styles/shared components | W3.6 | Visual layer |
-| W4.2 full verification (S1+S2+S3) | W1.3, W2.6, W3.6, W4.1 | Integration QA |
+- `src/index.css`: single entry, 127 lines. `@theme` defines 13 vars (`--text`, `--text-h`, `--bg`, `--border`, `--code-bg`, `--accent`, `--accent-bg`, `--accent-border`, `--social-bg`, `--shadow`, `--sans`, `--heading`, `--mono`). Only `--accent`, `--accent-bg`, `--accent-border`, `--social-bg`, `--shadow` are **unused** (5 dead tokens). Components (`Button.tsx`, pages) use hardcoded `text-gray-600`, `bg-indigo-600`, `dark:bg-[#16171d]` — token loop broken.
+- `src/styles/shared.css`: empty (1 newline).
+- `Layout.tsx` (52 lines) and `AuthLayout.tsx` (24 lines): 100% duplicated theme-sync `createEffect` (identical `t === 'dark' || (t === 'system' && ...)` block, lines 11-18 vs 8-15). Both use `min-h-svh flex flex-col bg-white text-gray-600 dark:bg-[#16171d] dark:text-gray-400`.
+- Zero `grid` usage (grep returned 0). 100% flexbox (`flex flex-col`, `inline-flex`, `items-center justify-center`).
+- Responsive: only `max-width: 1024px` media query (CSS) and `sm:text-5xl` (Tailwind) in `Home.tsx`. No `md:`, `lg:`, `xl:`.
+- Dark mechanism: `data-theme` set by duplicated `createEffect`, consumed by `@custom-variant dark`. Stage 1 (`data-theme`) exists; stage 2 (`prefers-color-scheme`) is missing.
+- No `@keyframes`, only one `transition-colors` on theme button. No motion architecture.
 
-Critical path: W0.1 -> W1.2 -> W2.5 -> W3.5 -> W4.2
+---
 
-## Parallel Execution Graph
+## Uncertainties / Assumptions (Clarified with User)
 
-Wave 0 (Start immediately — config/env):
-- W0.1 vite.config.ts + tsconfig.app.json paths + src/env.d.ts
-- W0.2 .env.example + .env (no secrets)
-- W0.3 alias resolution (~/* -> src/*)
-(Parallel safe; all independent)
+1. **B+C grading**: B = token loop (`tokens闭环`) + `@layer分层` + dark two-stage; C = layout/component unification + grid + responsive + motion (`动效`). Confirmed by user's explicit requirement list.
+2. **Animation scope**: Pure CSS `@keyframes` + `transition-*` utilities (Tailwind v4 native). No external motion library. Confirmed by absence of motion packages in `package.json`.
+3. **Token loop mechanism**: `@theme` variables declared and consumed via `var(--token)` in components / `shared.css` / `index.css`. Confirmed by current `var(--text)` usage in `index.css:27`.
+4. **Grid scope**: At least 2 files with `grid` class, grid-template-areas optional. Confirmed by user's "100% Flex → Grid" requirement.
+5. **Animation scope finalized**: Pure CSS `@keyframes` (`fade-in`, `slide-up`) + `transition-*` utilities (`transition-colors duration-200`). No `motion-one`, no JS motion library. Confirmed by user.
+6. **Grid scope finalized**: Grid adopted in `Layout` (holy-grail-style `grid-rows-[auto_1fr_auto]`) + at least 2 pages (`Home` auto-fit cards, `Dashboard` grid layout). No full masonry, no subgrid. Confirmed by user.
+7. **TDD orientation**: Tests run before and after each wave (`npm run test`, `npm run build`, `npm run typecheck`). Confirmed by user's "TDD-oriented planning" instruction.
+8. **No edits executed**: Plan mode READ-ONLY maintained throughout. Zero file modifications made to source. All verification commands documented for execution phase.
 
-Wave 1 (After Wave 0 — lib/api):
-- W1.1 src/lib/api/types.ts
-- W1.2 src/lib/api/client.ts
-- W1.3 src/lib/api/__tests__/client.test.ts (RED->GREEN)
-(Parallel: W1.1 + W1.2 can overlap; W1.3 after W1.2)
+---
 
-Wave 2 (After Wave 1 — stores/providers):
-- W2.1 src/stores/app/store.ts
-- W2.2 src/stores/auth/store.ts (+ persist)
-- W2.3 src/stores/theme/store.ts (+ persist)
-- W2.4 src/stores/i18n/store.ts
-- W2.5 src/stores/providers.tsx + hooks (useApp/useAuth/useTheme/useI18n)
-- W2.6 src/stores/__tests__/*.test.ts (S2 contracts)
-(Parallel within wave: W2.1-2.4 independent after W1; W2.5 after W2.1-2.4; W2.6 after W2.5)
+## Dependency Graph
 
-Wave 3 (After Wave 2 — routing/app):
-- W3.1 src/routes/index.tsx (Router, lazy, Layout, 404/500)
-- W3.2 src/routes/_components/AuthGuard.tsx
-- W3.3 src/routes/pages/Dashboard.tsx (lazy import)
-- W3.4 src/routes/pages/Login.tsx + NotFound.tsx
-- W3.5 src/App.tsx (Router root + provider wrap)
-- W3.6 src/index.tsx (provider mount)
-(W3.1-3.4 parallel; W3.5 depends W3.1; W3.6 depends W3.5)
+```
+T1 (Token + @layer) ──┬──→ T2 (Shared.css + test)
+                      ├──→ T3 (Dark two-stage)
+                      ├──→ T4 (Layout unification)
+                      ├──→ T5 (Grid + responsive)
+                      └──→ T6 (Component tokenization)
 
-Wave 4 (After Wave 3 — styles + full verification):
-- W4.1 src/styles/shared.css + src/components/shared/Button.tsx (250 LOC cap)
-- W4.2 Verification: tsc -b exit 0, vite build exit 0, curl /dist/index.html exists, manual QA (S1 GET 200, S2 localStorage ulw.*, S3 #/404 / #/dashboard redirect)
-(W4.1 independent after W3.6; W4.2 after all)
+T3 (Dark two-stage) ───→ T4, T5
 
-Estimated parallel speedup: ~45% vs sequential (Waves 0-3 have high parallelism; critical path is linear through store -> routes -> app).
+T5 (Grid) ─────────────→ T7 (Animation)
+T6 (Components) ────────→ T7 (Animation)
 
-## Tasks
+T2, T4, T5, T6, T7 ────→ T8 (Integration QA)
+```
 
-### Task W0.1: Config / Alias / Env Types
-**Where**: vite.config.ts, tsconfig.app.json, src/env.d.ts
-**Why**: Foundation; `~/*` alias; `verbatimModuleSyntax` requires `import type`; env types needed before any store uses `VITE_`.
-**How**: Edit vite.config.ts: add `resolve.alias { '~/*': path.resolve(__dirname, 'src/*') }`. Add `paths: { '~/*': ['./src/*'] }` to tsconfig.app.json compilerOptions. Create src/env.d.ts declaring `VITE_API_URL: string` and `NODE_ENV`. Preserve `noUnusedLocals/noUnusedParameters/erasableSyntaxOnly/verbatimModuleSyntax/jsx:preserve+jsxImportSource`. Do NOT add `strict: true`.
-**Delegation**: Category `quick` (config edits). Skills: [`programming`] (type-safe TS config).
-**Depends On**: None
-**Acceptance Criteria (verifiable)**:
-- `cat vite.config.ts` shows alias `~/*` mapped to `src/*`.
-- `cat tsconfig.app.json` includes `paths` with `~/*` and retains original flags.
-- `cat src/env.d.ts` exists and exports interface with `VITE_API_URL: string`.
-- `npx tsc -b --noEmit` (after types added) exits 0.
+---
 
-### Task W0.2: Env Files
-**Where**: .env.example, .env
-**Why**: Provides `VITE_API_URL` contract for S1 (GET /api/health) without committing secrets.
-**How**: .env.example: `VITE_API_URL=http://localhost:5173/api`. .env (ignored by .gitignore? check; if not, add `.env` to .gitignore): same value for dev. No secrets.
-**Delegation**: Category `quick`.
-**Depends On**: W0.3 (needs env.d.ts first to reference types, though file creation order can reverse; plan says W0.3 includes env.d.ts, so W0.2 can be parallel with W0.3 or before)
-**Acceptance Criteria**:
-- `.env.example` exists with `VITE_API_URL=...`
-- `.env` exists and `.gitignore` excludes it (check `.gitignore` contains `.env`)
-- `cat .env` shows no secrets
+## Parallel Execution Waves (4 Waves)
 
-### Task W0.3: Env Type Integration
-**Where**: src/env.d.ts (already covered in W0.1). Confirm path alias works.
-**How**: Confirm `import { API_URL } from '~/lib/api/client'` resolves in build. Create `src/lib/index.ts` with dummy export to verify alias.
-**Delegation**: Category `quick`.
-**Depends On**: W0.1
-**Acceptance Criteria**:
-- `ls src/lib/` shows directory
-- `cat src/lib/index.ts` exports dummy `export const ok = 1;`
-- `vite build` resolves alias (no `Failed to resolve import` error)
+### Wave 1 (Start Immediately — No Dependencies)
+- **T1**: Token architecture + `@layer` split (`src/index.css`)
+- **T3**: Dark two-stage (`src/index.css` dark block — isolated section edit to avoid conflict with T1)
+*Can run sequentially or with file-section isolation; safe in parallel if editing different CSS sections.*
 
-### Task W1.1: API Types
-**Where**: src/lib/api/types.ts
-**Why**: Type-safe contracts for S1 (GET /api/health -> 200 + JSON schema); used by client/store/routes.
-**How**: Define `type HealthResponse = { status: 'ok'; version: string; timestamp: string }`; `type ApiError = { message: string; status: number }`; export interfaces. All imports with `import type` if importing from other modules; here self-contained.
-**Delegation**: Category `programming`. Skills: [`solidjs`, `programming`].
-**Depends On**: W0.1, W0.2 (env types available)
-**Acceptance Criteria**:
-- File < 250 LOC (target: < 50)
-- `import type` used where appropriate
-- `npx tsc -b` passes (no `any` leaks)
-- Types include at minimum `HealthResponse` and `ApiError`
+### Wave 2 (After Wave 1 — 4 Parallel Tasks)
+- **T2**: Shared.css + token verification test
+- **T4**: Layout / AuthLayout unification
+- **T5**: Grid + responsive expansion
+- **T6**: Component unification (Button tokenization)
+*All independent once Wave 1 token variables and dark mechanism exist.*
 
-### Task W1.2: API Client
-**Where**: src/lib/api/client.ts
-**Why**: Central fetch wrapper; TDD RED->GREEN; supports S1 happy path and S2 optimistic/reconcile patterns (though reconcile is store-level, client provides raw data).
-**How**: Export `async function apiHealth(): Promise<HealthResponse>` using `fetch` to `import.meta.env.VITE_API_URL`. Add basic `ApiError` throw on non-ok. Use `import type` for type annotations in function signatures. No `any`.
-**Delegation**: Category `unspecified-high` (complex logic: error handling, env integration). Skills: [`solidjs`, `programming`].
-**Depends On**: W1.1
-**Acceptance Criteria**:
-- `cat src/lib/api/client.ts` < 250 LOC
-- Uses `import.meta.env.VITE_API_URL`
-- Throws `ApiError` on non-200
-- `cat src/lib/api/client.ts` contains `apiHealth` function
+### Wave 3 (After Wave 2 — Single/Parallel)
+- **T7**: Animation / motion layer (`@keyframes` + transition on components)
+*Depends on T5 (grid patterns to animate) and T6 (button hover states to transition).*
 
-### Task W1.3: API Client TDD Tests (S1)
-**Where**: src/lib/api/__tests__/client.test.ts
-**Why**: Contract S1: `vitest api-client GREEN`; RED->GREEN cycle.
-**How**: Install vitest + `@solidjs/testing-library` (optional; use vitest `vi.fn()` to mock `global.fetch`). Write test: mock fetch returning `{ status: 'ok', version: '1.0.0', timestamp: '2026-09-10' }`; expect `await apiHealth()` resolves with correct shape; mock error response; expect throws. All `import type` for mock types.
-**Delegation**: Category `deep` (TDD logic-heavy). Skills: [`solidjs`, `programming`, `debugging`].
-**Depends On**: W1.2
-**Acceptance Criteria**:
-- `npx vitest run src/lib/api/__tests__/client.test.ts` exits 0 (GREEN)
-- File exists with at least 3 assertions (ok-200, schema match, error throw)
-- `cat src/lib/api/__tests__/client.test.ts` uses `import type` where types referenced
+### Wave 4 (After Wave 3 — Final Integration)
+- **T8**: Integration verification + full QA (`npm run build` + `npm run test` + `npm run typecheck` + manual checklist)
 
-### Task W2.1: App Store
-**Where**: src/stores/app/store.ts
-**Why**: Global reactive state; uses `createStore` + `produce` (patterns.md) for multi-field updates; not persisted (scoped app-level).
-**How**: `createStore<{ loading: boolean; error: string | null }>(...)`. Export `useApp()` hook that reads store from context/provider. Use `produce` in setters. < 250 LOC.
-**Delegation**: Category `unspecified-high`. Skills: [`solidjs`, `programming`].
-**Depends On**: W1.1 (types), W0.3 (env for initialization)
-**Acceptance Criteria**:
-- File < 150 LOC
-- Exports `createAppStore` or `useApp`
-- Contains `produce` usage
-- `npx tsc -b` passes
+---
 
-### Task W2.2: Auth Store + Persistence
-**Where**: src/stores/auth/store.ts
-**Why**: S2 contract: empty token keeps idle; persistence via `@solid-primitives/storage`. Uses `makePersisted` (from `@solid-primitives/storage`).
-**How**: Define `createPersisted` signal or store with `makePersisted` (check `@solid-primitives/storage` docs; typically `createStorageSignal` or `makePersisted` on a signal/store). Given the user mentions `makePersisted` and `produce/reconcile`, design: `const [auth, setAuth] = makePersisted(createSignal<AuthState>({ token: null, user: null }), { storage: localStorage, name: 'ulw.auth' })`. Update with `produce` for nested updates. < 250 LOC.
-**Delegation**: Category `deep`. Skills: [`solidjs`, `programming`].
-**Depends On**: W2.1 (provider structure), W0.3 (env types optional)
-**Acceptance Criteria**:
-- File < 200 LOC
-- Uses `@solid-primitives/storage` (`makePersisted` or equivalent)
-- Storage key contains `ulw.` (e.g., `ulw.auth`)
-- `useAuth()` hook exported
-- `localStorage.getItem('ulw.auth')` works after set (manual check)
+## Atomic Commit Strategy (TDD-Oriented)
 
-### Task W2.3: Theme Store + Persistence
-**Where**: src/stores/theme/store.ts
-**Why**: S2 edge: illegal theme value falls back to `system`; persistence.
-**How**: `createSignal<'light' | 'dark' | 'system'>('system')` with `makePersisted`. Add validation: if stored value not in allowed set, reset to `system`. Use `createMemo` for derived `effectiveTheme`.
-**Delegation**: Category `unspecified-high`. Skills: [`solidjs`, `programming`].
-**Depends On**: W2.2 (persistence pattern established)
-**Acceptance Criteria**:
-- File < 150 LOC
-- Storage key `ulw.theme`
-- Illegal value reset logic present (e.g., `if (!['light','dark','system'].includes(val)) reset()`)
-- `useTheme()` exported
+Each commit = one task. No squash. Atomic rollback per wave boundary.
 
-### Task W2.4: i18n Store
-**Where**: src/stores/i18n/store.ts
-**Why**: Generic multi-lang support; no persistence required by spec but can share provider.
-**How**: `createStore<{ locale: string; dict: Record<string, string> }>({ locale: 'en', dict: {} })`. Export `useI18n()` hook. Use `import type` for dict types.
-**Delegation**: Category `quick`. Skills: [`programming`].
-**Depends On**: W2.3
-**Acceptance Criteria**:
-- File < 150 LOC
-- `useI18n()` exported
-- `t('key')` helper exported
+```
+commit T1-struct: style(B): split index.css into @layer base/components/utilities; declare token loop
+commit T3-dark2: style(B): add prefers-color-scheme stage 2; preserve data-theme stage 1
+commit T2-verify: style(B): populate shared.css; add token-consumption vitest
+commit T4-layout: style(C): extract BaseLayout; eliminate Layout/AuthLayout duplication
+commit T5-grid: style(C): introduce grid layout; expand md/lg/xl responsive breakpoints
+commit T6-component: style(C): tokenize Button variants; remove hardcoded hex colors
+commit T7-motion: style(C): add @keyframes fade-in/slide-up; apply transition to Button hover
+commit T8-verify: style(C): full build/test pass; document token loop and layer architecture
+```
 
-### Task W2.5: Providers + Hooks Integration
-**Where**: src/stores/providers.tsx, src/stores/hooks.ts (or index.ts)
-**Why**: Combine all stores; mount order; `makePersisted` initialization; provider composition.
-**How**: Create `AppProviders` component that wraps `ThemeContext.Provider`, `AuthContext.Provider`, `AppContext.Provider`, `I18nContext.Provider`. Each provider gets value from store. Hooks use `useContext`. < 250 LOC.
-**Delegation**: Category `unspecified-high`. Skills: [`solidjs`, `programming`].
-**Depends On**: W2.1-W2.4
-**Acceptance Criteria**:
-- `src/stores/providers.tsx` exports `AppProviders`
-- `src/stores/index.ts` (or hooks file) exports `useApp`, `useAuth`, `useTheme`, `useI18n`
-- No `any` usage; all `import type` for imports
-- `npx tsc -b` passes
+---
 
-### Task W2.6: Store Tests (S2 Contract)
-**Where**: src/stores/__tests__/*.test.ts
-**Why**: S2 verification: empty token idle; theme illegal value reset; persistence restore; cross-tab `localStorage` recovery.
-**How**: Test auth: empty token -> `user()` null; set token -> `user()` set; theme: set illegal value -> reset to system; persistence: set value, simulate reload via new `makePersisted` call, assert restored; use `unwrap` (from `solid-js/store`) to read raw state in assertions.
-**Delegation**: Category `deep` (logic-heavy TDD). Skills: [`solidjs`, `programming`, `debugging`].
-**Depends On**: W2.5
-**Acceptance Criteria**:
-- `npx vitest run src/stores/__tests__/` exits 0
-- At least 4 test cases: auth idle/auth set; theme illegal reset; persistence restore; cross-tab recovery
-- `cat src/stores/__tests__/auth.test.ts` contains `unwrap` usage
+## Detailed Tasks (File + Success Criteria + Verification Commands)
 
-### Task W3.1: Routes + Router Setup
-**Where**: src/routes/index.tsx, src/routes/_components/Layout.tsx
-**Why**: Solid Router (routing.md): Router, lazy routes, Layout, 404/500, preload/cache optional.
-**How**: `Router root={Layout}`; `Route path="/" component={lazy(() => import('../pages/Home'))}`; `Route path="/login" component={lazy(...)}`; `Route path="/dashboard" component={lazy(...)}`; `Route path="*404" component={lazy(() => import('../pages/NotFound'))}`. Add `Route path="/dashboard" preload={() => checkAuth()}` per routing.md. Use `import { lazy } from 'solid-js'`. Layout includes nav with `<A>` links (routing.md). < 250 LOC.
-**Delegation**: Category `unspecified-high`. Skills: [`solidjs`, `programming`].
-**Depends On**: W2.5 (providers context needed for AuthGuard inside routes)
-**Acceptance Criteria**:
-- File < 250 LOC
-- Contains `lazy` imports
-- Contains `Router`, `Route` from `@solidjs/router`
-- Contains `Layout` component
-- `npx tsc -b` passes with `@solidjs/router` types
+### T1: Token Architecture + `@layer` Split (B — Foundation)
+- **Files**: `src/index.css`
+- **Category / Skills**: `unspecified-high` | [`tailwindcss`, `tailwindcss-advanced-layouts`, `solidjs`]
+- **Skills included**: `tailwindcss` (v4 `@theme`/`@layer` syntax); `tailwindcss-advanced-layouts` (grid layer planning); `solidjs` (component integration awareness).
+- **Skills omitted**: `frontend` (no aesthetic redesign); `debugging` (no runtime fix); `programming` (CSS-only, no TypeScript logic).
+- **Acceptance**: `grep -n "@layer" src/index.css` = 3 blocks; `grep -n "var(--" src/index.css` shows consumption; `npm run build` exit 0; `npm run typecheck` exit 0.
+- **Verification**: `grep -n "@layer" src/index.css | wc -l` (expect 3+); `grep -n "var(--" src/index.css` (expect non-empty); `npm run build`; `npm run typecheck`.
 
-### Task W3.2: AuthGuard Component
-**Where**: src/routes/_components/AuthGuard.tsx
-**Why**: Protected routes (S3): `/dashboard` unauth -> redirect `/login`.
-**How**: Component using `useAuth()` from store; `Show when={isAuthenticated()} fallback={<Navigate href="/login" />}` (routing.md). Exports `AuthGuard`. < 150 LOC. `import type` for props.
-**Delegation**: Category `quick`. Skills: [`solidjs`].
-**Depends On**: W2.2, W3.1 (router types available)
-**Acceptance Criteria**:
-- File < 150 LOC
-- Uses `useAuth()`
-- Uses `Navigate` from `@solidjs/router`
-- Contains `Show` with `fallback`
+### T3: Dark Two-Stage Architecture (B — Advanced Theme)
+- **Files**: `src/index.css` (dark block only, lines ~112–127 + `@custom-variant` area)
+- **Category / Skills**: `unspecified-high` | [`tailwindcss`, `solidjs`]
+- **Skills included**: `tailwindcss` (`@custom-variant`, `prefers-color-scheme`); `solidjs` (verify `useTheme()` / theme effect unchanged in `Layout.tsx` / `AuthLayout.tsx`).
+- **Skills omitted**: `frontend`, `security-research`.
+- **Acceptance**: `grep -n "prefers-color-scheme" src/index.css` exists; `[data-theme='dark']` preserved; theme toggle button in `Layout.tsx` still updates `document.documentElement.dataset.theme`; build passes.
+- **Verification**: `grep -n "prefers-color-scheme" src/index.css`; `cat src/index.css | grep -A 15 "prefers-color-scheme"`; `npm run build`.
 
-### Task W3.3: Lazy Page Components (Dashboard / Login / NotFound)
-**Where**: src/routes/pages/Dashboard.tsx, Login.tsx, NotFound.tsx
-**Why**: Route targets; lazy loaded; Dashboard protected; Login public.
-**How**: Dashboard: uses `useApp()` (loading state); Login: basic form using `createForm` pattern (optional minimal); NotFound: simple message. Each < 200 LOC. `import type` for props/types.
-**Delegation**: Category `visual-engineering` (UI structure). Skills: [`solidjs`, `frontend`].
-**Depends On**: W3.1
-**Acceptance Criteria**:
-- Each file < 200 LOC
-- Dashboard imports `useApp` or `useAuth`
-- NotFound renders message matching `/404`
+### T2: Shared.css + Token Consumption Verification (B — Verification)
+- **Files**: `src/styles/shared.css` (rewrite); `src/styles/__tests__/token-consumption.test.ts` (new)
+- **Category / Skills**: `quick` | [`tailwindcss`, `programming`]
+- **Skills included**: `tailwindcss` (`@utility` / `var(--token)`); `programming` (vitest assertions).
+- **Skills omitted**: `solidjs`, `tailwindcss-advanced-layouts` (simple utilities, not complex grid/layout).
+- **Acceptance**: `npm run test -- --run src/styles/` exit 0; `cat src/styles/shared.css | wc -l` > 3; `grep -n "var(--" src/styles/shared.css` non-empty.
+- **Verification**: `npm run test -- --run src/styles/`; `cat src/styles/shared.css`; `grep -n "var(--" src/styles/shared.css`.
 
-### Task W3.4: App.tsx + index.tsx Replacement
-**Where**: src/App.tsx, src/index.tsx
-**Why**: Replace single-file counter; mount providers; integrate Router.
-**How**: App.tsx: `<AppProviders><Router>...</Router></AppProviders>` (no counter code). index.tsx: `render(() => <App />, document.getElementById('root')!)` (preserve mount point). < 100 LOC each.
-**Delegation**: Category `quick`. Skills: [`solidjs`, `programming`].
-**Depends On**: W3.1-W3.3, W2.5
-**Acceptance Criteria**:
-- `cat src/App.tsx` has no `createSignal` counter
-- Contains `<AppProviders>` and `<Router>`
-- `cat src/index.tsx` renders `<App />`
-- `vite build` exits 0
+### T4: Layout / AuthLayout Unification (C — Layout)
+- **Files**: `src/routes/_components/BaseLayout.tsx` (new); `src/routes/_components/Layout.tsx` (refactor/remove); `src/routes/_components/AuthLayout.tsx` (refactor/remove); `src/App.tsx` (update imports/routes)
+- **Category / Skills**: `unspecified-high` | [`solidjs`, `tailwindcss`]
+- **Skills included**: `solidjs` (`ParentProps`, `A`, `Router`, `lazy`, component props); `tailwindcss` (token class construction in new layout).
+- **Skills omitted**: `tailwindcss-advanced-layouts` (grid patterns handled in T5, not this structural unification); `frontend` (same visual, just unified structure).
+- **Acceptance**: Only one `createEffect` theme-sync definition across `src/routes/_components/` (verified by `grep -r`); `App.tsx` uses unified layout; no duplicate `min-h-svh flex flex-col bg-white` strings; `npm run typecheck` exit 0.
+- **Verification**: `grep -r "createEffect" src/routes/_components/`; `grep -r "min-h-svh flex flex-col bg-white" src/routes/_components/`; `npm run build`; `npm run typecheck`.
 
-### Task W4.1: Shared Styles + Components
-**Where**: src/styles/shared.css, src/components/shared/Button.tsx (optional), src/components/shared/LayoutNav.tsx
-**Why**: Production-level visual layer; 250 LOC cap; accessibility (patterns.md focus management, live regions optional minimal).
-**How**: Shared CSS: variables for light/dark (`[data-theme="dark"]`). Button component: polymorphic `as` prop (optional minimal). All files < 250 LOC. `import type` for props.
-**Delegation**: Category `visual-engineering`. Skills: [`solidjs`, `frontend`].
-**Depends On**: W3.4 (UI layers need mounted app)
-**Acceptance Criteria**:
-- Each file < 250 LOC
-- `src/components/shared/Button.tsx` exports component
-- CSS uses CSS variables or `data-theme` selectors
-- `npx tsc -b` passes
+### T5: Grid + Responsive Expansion (C — Layout & Responsive)
+- **Files**: `src/routes/_components/Layout.tsx` (or `BaseLayout.tsx` from T4); `src/routes/pages/Home.tsx`, `Dashboard.tsx`, `Login.tsx`, `NotFound.tsx`; `src/index.css` (responsive media query expansions)
+- **Category / Skills**: `visual-engineering` | [`tailwindcss-advanced-layouts`, `tailwindcss`, `solidjs`]
+- **Skills included**: `tailwindcss-advanced-layouts` (grid-template-areas, responsive grid recipes); `tailwindcss` (`sm:`/`md:`/`lg:`); `solidjs` (page JSX updates).
+- **Skills omitted**: `frontend` (structural change, not aesthetic redesign).
+- **Acceptance**: `grep -c "grid" src/routes/pages/*.tsx` >= 2 files; `grep -ro 'md:\|lg:' src/routes/pages/` non-empty; `npm run build` exit 0. Grid patterns: holy-grail (`grid-rows-[auto_1fr_auto]`) in Layout, auto-fit cards in Home (`grid-cols-[repeat(auto-fit,minmax(250px,1fr))]`), grid layout in Dashboard. No full masonry, no subgrid.
+- **Verification**: `grep -c "grid" src/routes/pages/Home.tsx src/routes/pages/Dashboard.tsx`; `grep -ro 'md:\|lg:' src/routes/pages/*.tsx`; `npm run build`.
 
-### Task W4.2: Full Verification (S1 + S2 + S3)
-**Where**: Manual + automated verification commands
-**Why**: Integration QA; regression check; not a code edit wave — verification.
-**How**: 
-(1) `npx tsc -b` -> exit 0 (strict flags preserved, no `any`).
-(2) `npx vite build` -> exit 0; `ls dist/index.html` exists.
-(3) `curl -s -o /dev/null -w "%{http_code}" file://$(pwd)/dist/index.html` -> 200.
-(4) `npx vitest run` (api + store tests) -> GREEN.
-(5) Manual S1: inspect `src/lib/api/client.ts` and confirm `VITE_API_URL` is used; manual curl to `http://localhost:5173/api/health` if server running; expect JSON.
-(6) Manual S2: open browser devtools; set `localStorage.setItem('ulw.auth', '{"token":"t","user":{"name":"test"}}')`; reload; check `useAuth()` reads it; set illegal theme `ulw.theme='invalid'`; reload; theme resets to `system`.
-(7) Manual S3: visit `/#/404` -> NotFound rendered; visit `/#/dashboard` (unauth) -> redirect to `/login`; `vite build` still exit 0.
-**Delegation**: Category `deep` (integration logic). Skills: [`solidjs`, `programming`, `debugging`, `visual-qa`].
-**Depends On**: W1.3, W2.6, W3.6, W4.1
-**Acceptance Criteria**:
-- `tsc -b` exit 0
-- `vite build` exit 0
-- `dist/index.html` exists
-- `vitest run` GREEN (S1+S2 tests)
-- S3 manual checks: `#404` shows NotFound; `#dashboard` unauth -> `/login`; counter replaced but build passes
+### T6: Component Unification (C — Components)
+- **Files**: `src/components/shared/Button.tsx`
+- **Category / Skills**: `unspecified-high` | [`solidjs`, `tailwindcss`]
+- **Skills included**: `solidjs` (`ButtonProps`, `splitProps`, `ParentProps`); `tailwindcss` (`var(--accent)` usage and variant class composition).
+- **Skills omitted**: `tailwindcss-advanced-layouts` (not complex grid/layout); `frontend` (same appearance, token-driven); `security-research`.
+- **Acceptance**: `grep -n "#[0-9a-f]\{6\}" src/components/shared/Button.tsx` returns nothing; `grep -n "var(--" src/components/shared/Button.tsx` non-empty; build passes.
+- **Verification**: `grep -n "#[0-9a-f]\{6\}" src/components/shared/Button.tsx` (expect 0); `grep -n "var(--" src/components/shared/Button.tsx` (expect results); `npm run build`; `npm run typecheck`.
 
-## Commit Strategy (Atomic — not executed now, for reference)
+### T7: Animation / Motion Layer (C — Motion)
+- **Files**: `src/index.css` (keyframes `fade-in` + `slide-up`; transition utilities); `src/components/shared/Button.tsx` (hover `transition-colors duration-200`); optionally `Layout.tsx` / `Home.tsx` (animation class). Pure CSS only — no `motion-one`, no JS motion library.
+- **Category / Skills**: `visual-engineering` | [`tailwindcss`, `frontend`, `solidjs`]
+- **Skills included**: `tailwindcss` (`@keyframes`, `animation-*`, `transition-*`); `frontend` (motion best practices); `solidjs` (class application to components/pages).
+- **Skills omitted**: `tailwindcss-advanced-layouts` (motion ≠ layout); `security-research`.
+- **Acceptance**: `grep -n "@keyframes" src/index.css` >= 2 results; `grep -n "transition-" src/components/shared/Button.tsx` exists; `npm run build` exit 0.
+- **Verification**: `grep -n "@keyframes" src/index.css`; `grep -n "transition-" src/components/shared/Button.tsx`; `npm run build`.
 
-Commit per wave/task boundary (atomic, no bundle commits):
-1. `chore(config): vite alias + tsconfig paths + env.d.ts` (W0.1)
-2. `chore(env): .env.example/.env` (W0.2)
-3. `feat(api): types + client` (W1.1+1.2)
-4. `test(api): TDD RED->GREEN for client` (W1.3)
-5. `feat(stores): app/auth/theme/i18n + providers` (W2.1-2.5)
-6. `test(stores): S2 persistence/reconcile/edge` (W2.6)
-7. `feat(routes): Router + lazy + AuthGuard + Layout` (W3.1-3.4)
-8. `feat(app): App.tsx + index.tsx provider mount` (W3.5-3.6)
-9. `feat(styles): shared components + CSS` (W4.1)
-10. `chore(verify): full QA logs (S1/S2/S3) + build artifacts` (W4.2 — no source change unless fix)
+### T8: Integration Verification + Full QA (C — Final Wave)
+- **Files**: Optional `STYLE_ARCH.md` (new doc); `README.md` (optional architecture notes)
+- **Category / Skills**: `unspecified-high` | [`review-work`, `solidjs`, `tailwindcss`, `frontend`]
+- **Skills included**: `review-work` (post-implementation verification pattern); `solidjs` (build/test); `tailwindcss` (token loop verification); `frontend` (responsive/dark/motion QA checklist).
+- **Skills omitted**: `security-research` (no security audit required); `debugging` (no runtime crash to fix; preventive verification).
+- **Acceptance**: `npm run build` exit 0; `npm run test` exit 0; `npm run typecheck` exit 0; all 10 success criteria verified and logged (token loop, layer split, dark stages, layout unified, grid adopted, responsive expanded, component tokenized, animation present, build/test clean); `STYLE_ARCH.md` exists.
+- **Verification**: `npm run build`; `npm run test`; `npm run typecheck`; manual checklist logged; `grep` verification commands from T1-T7 executed successfully.
 
-No commit executed (plan mode; user instructed no commits).
+---
 
-## Success Criteria (Final)
+## Wave-Based TODO List (Caller: Use `todowrite` and Execute by Wave)
 
-- All files created at exact paths listed above.
-- Each file < 250 LOC (verified by `wc -l` or read inspection).
-- All TypeScript imports using `import type` where appropriate (verified by `grep -r 'import type' src/lib/ src/stores/ src/routes/`).
-- `verbatimModuleSyntax` preserved; `noUnusedLocals/noUnusedParameters` preserved (verified by `cat tsconfig.app.json`).
-- `vite build` exit 0; `dist/index.html` exists.
-- `tsc -b` exit 0 (strict flags intact).
-- Vitest GREEN for `src/lib/api/__tests__/client.test.ts` and `src/stores/__tests__/*.test.ts`.
-- S1 manual: `/api/health` returns JSON matching `HealthResponse` schema.
-- S2 manual: `localStorage` keys `ulw.auth` and `ulw.theme` persist and recover; illegal theme resets to `system`; empty token = idle state.
-- S3 manual: `/#/404` renders `NotFound`; `/#/dashboard` unauth redirects `/login`; build exit 0; original counter replaced.
+### Wave 1 (No Dependencies — Start Now)
+- [ ] **T1** — Token architecture + `@layer` split — File: `src/index.css` — Category: `unspecified-high` — Skills: [`tailwindcss`, `tailwindcss-advanced-layouts`, `solidjs`] — Verify: `grep "@layer"` (3+ results), `grep "var(--"` (consumption), `npm run build`, `npm run typecheck`.
+- [ ] **T3** — Dark two-stage architecture — File: `src/index.css` (dark block) — Category: `unspecified-high` — Skills: [`tailwindcss`, `solidjs`] — Verify: `grep "prefers-color-scheme"`, theme toggle preserved, `npm run build`.
 
-## TODO List (ADD THESE) — Caller executes by wave
+### Wave 2 (After Wave 1 Completes — Parallel)
+- [ ] **T2** — Shared.css + token verification test — Files: `src/styles/shared.css`, `src/styles/__tests__/token-consumption.test.ts` — Category: `quick` — Skills: [`tailwindcss`, `programming`] — Verify: `npm run test -- --run src/styles/`, `shared.css` > 3 lines, `grep "var(--"`.
+- [ ] **T4** — Layout / AuthLayout unification — Files: `src/routes/_components/BaseLayout.tsx`, `Layout.tsx`, `AuthLayout.tsx`, `src/App.tsx` — Category: `unspecified-high` — Skills: [`solidjs`, `tailwindcss`] — Verify: `grep -r "createEffect"` (single definition), `npm run typecheck`, `npm run build`.
+- [ ] **T5** — Grid + responsive expansion — Files: `src/routes/_components/*.tsx`, `src/routes/pages/*.tsx`, `src/index.css` — Category: `visual-engineering` — Skills: [`tailwindcss-advanced-layouts`, `tailwindcss`, `solidjs`] — Verify: `grep "grid"` (>= 2 files), `grep "md:\|lg:"` (non-empty), `npm run build`.
+- [ ] **T6** — Component unification (Button tokenization) — File: `src/components/shared/Button.tsx` — Category: `unspecified-high` — Skills: [`solidjs`, `tailwindcss`] — Verify: `grep "#[0-9a-f]\{6\}"` (0 results), `grep "var(--"` (results), `npm run build`, `npm run typecheck`.
 
-### Wave 0 (Config/Env — no dependencies)
-- [ ] **W0.1 Config / Alias / Env Types** — `vite.config.ts` alias; `tsconfig.app.json` paths; `src/env.d.ts`; verify `npx tsc -b` exit 0 — Category: `quick` — Skills: [`programming`]
-- [ ] **W0.2 Env Files** — `.env.example`, `.env`, `.gitignore` excludes `.env` — Category: `quick` — Skills: [`programming`]
-- [ ] **W0.3 Alias Resolution Check** — `src/lib/index.ts` dummy export; `vite build` resolves `~/lib` — Category: `quick` — Skills: [`programming`]
+### Wave 3 (After Wave 2 Completes)
+- [ ] **T7** — Animation / motion layer — Files: `src/index.css`, `src/components/shared/Button.tsx` — Category: `visual-engineering` — Skills: [`tailwindcss`, `frontend`, `solidjs`] — Verify: `grep "@keyframes"` (>= 2), `grep "transition-" Button.tsx`, `npm run build`.
 
-### Wave 1 (API — depends Wave 0)
-- [ ] **W1.1 API Types** — `src/lib/api/types.ts` (`HealthResponse`, `ApiError`) — Category: `programming` — Skills: [`solidjs`, `programming`]
-- [ ] **W1.2 API Client** — `src/lib/api/client.ts` (`apiHealth`, `VITE_API_URL`, error throw) — Category: `unspecified-high` — Skills: [`solidjs`, `programming`]
-- [ ] **W1.3 API TDD Test (S1)** — `src/lib/api/__tests__/client.test.ts` RED->GREEN — Category: `deep` — Skills: [`solidjs`, `programming`, `debugging`]
+### Wave 4 (After Wave 3 Completes — Final Integration)
+- [ ] **T8** — Integration verification + full QA — Optional: `STYLE_ARCH.md`, `README.md` update — Category: `unspecified-high` — Skills: [`review-work`, `solidjs`, `tailwindcss`, `frontend`] — Verify: `npm run build` (0), `npm run test` (0), `npm run typecheck` (0), all 10 success criteria confirmed, `STYLE_ARCH.md` exists.
 
-### Wave 2 (Stores — depends Wave 1 for types; parallel within wave)
-- [ ] **W2.1 App Store** — `src/stores/app/store.ts` (`createStore` + `produce`) — Category: `unspecified-high` — Skills: [`solidjs`, `programming`]
-- [ ] **W2.2 Auth Store + Persist** — `src/stores/auth/store.ts` (`makePersisted`, `ulw.auth`) — Category: `deep` — Skills: [`solidjs`, `programming`]
-- [ ] **W2.3 Theme Store + Persist** — `src/stores/theme/store.ts` (`ulw.theme`, illegal reset) — Category: `unspecified-high` — Skills: [`solidjs`, `programming`]
-- [ ] **W2.4 i18n Store** — `src/stores/i18n/store.ts` (`useI18n`, `t`) — Category: `quick` — Skills: [`programming`]
-- [ ] **W2.5 Providers + Hooks** — `src/stores/providers.tsx`, hooks index (`useApp`, `useAuth`, `useTheme`, `useI18n`) — Category: `unspecified-high` — Skills: [`solidjs`, `programming`]
-- [ ] **W2.6 Store Tests (S2)** — `src/stores/__tests__/*.test.ts` (persist/reconcile/edge) — Category: `deep` — Skills: [`solidjs`, `programming`, `debugging`]
+---
 
-### Wave 3 (Routing/App — depends Wave 2)
-- [ ] **W3.1 Routes + Router** — `src/routes/index.tsx`, `src/routes/_components/Layout.tsx` (lazy, Router, 404) — Category: `unspecified-high` — Skills: [`solidjs`, `programming`]
-- [ ] **W3.2 AuthGuard** — `src/routes/_components/AuthGuard.tsx` (`Show` + `Navigate`) — Category: `quick` — Skills: [`solidjs`]
-- [ ] **W3.3 Page Components** — `src/routes/pages/Dashboard.tsx`, `Login.tsx`, `NotFound.tsx` — Category: `visual-engineering` — Skills: [`solidjs`, `frontend`]
-- [ ] **W3.4 App + Index Replacement** — `src/App.tsx` (Router + providers, no counter), `src/index.tsx` mount — Category: `quick` — Skills: [`solidjs`, `programming`]
+## Success Criteria (10-Point Checklist)
 
-### Wave 4 (Styles + Full QA — depends Wave 3)
-- [ ] **W4.1 Shared Styles/Components** — `src/styles/shared.css`, `src/components/shared/Button.tsx` — Category: `visual-engineering` — Skills: [`solidjs`, `frontend`]
-- [ ] **W4.2 Full Verification (S1+S2+S3)** — `tsc -b` exit 0, `vite build` exit 0, `dist/index.html`, vitest GREEN, manual S1/S2/S3 checks — Category: `deep` — Skills: [`solidjs`, `programming`, `debugging`, `visual-qa`]
+1. Token loop closed: `@theme` vars declared in `index.css` consumed via `var(--...)` in components / `shared.css`.
+2. Layer separation: `@layer base`, `@layer components`, `@layer utilities` present.
+3. Dark two-stage: `data-theme="dark"` (manual) + `(prefers-color-scheme: dark)` (system) both handled.
+4. Layout unified: `Layout.tsx` / `AuthLayout.tsx` duplication eliminated (single `BaseLayout` or extracted hook).
+5. Grid adopted: >= 2 files in `src/routes/` or `src/components/` contain `grid` class.
+6. Responsive expanded: `md:` and `lg:` present in source files (beyond single existing `sm:`).
+7. Component tokenized: `Button.tsx` uses token variables (`var(--accent)` etc.), zero hardcoded hex colors.
+8. Animation present: >= 2 `@keyframes` in `index.css`; transition classes applied.
+9. Build/test clean: `npm run build`, `npm run test`, `npm run typecheck` all exit 0.
+10. TDD verified: Each wave's verification commands executed and logged before proceeding.
 
-Execution instructions: Fire Wave 0 in parallel; after Wave 0 complete, fire Wave 1 (W1.1+W1.2 parallel, then W1.3); Wave 2 (W2.1-W2.4 parallel, W2.5 after, W2.6 after); Wave 3 (W3.1-W3.3 parallel, W3.4 after); Wave 4 (W4.1, then W4.2). Final QA: verify all acceptance criteria above.
+---
+
+*Plan complete. All requirements addressed (English output, parallel waves, atomic commits, TDD orientation, file-level success criteria with verification commands, skills evaluation included/omitted with reasons, dependency and parallel graphs). Ready for execution upon user confirmation.*
