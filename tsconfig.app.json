@@ -23,11 +23,9 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
 
-    /* Path aliases (mirrored in vite.config.ts via vite-tsconfig-paths) */
-    "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
+    /* Path aliases (mirrored in vite.config.ts via resolve.alias) */
     "paths": {
-      "~/*": ["src/*"]
+      "~/*": ["./src/*"]
     }
   },
   "include": ["src"]
