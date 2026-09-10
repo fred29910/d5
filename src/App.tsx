@@ -3,8 +3,7 @@ import type { ParentProps } from 'solid-js'
 import { Route, Router } from '@solidjs/router'
 import { AppProviders } from './stores/providers.tsx'
 import { AuthGuard } from './routes/_components/AuthGuard.tsx'
-import { AuthLayout } from './routes/_components/AuthLayout.tsx'
-import { Layout } from './routes/_components/Layout.tsx'
+import { BaseLayout } from './routes/_components/BaseLayout.tsx'
 
 const Home = lazy(() => import('./routes/pages/Home.tsx'))
 const Login = lazy(() => import('./routes/pages/Login.tsx'))
@@ -26,12 +25,12 @@ function PageLoading() {
 function AppError(err: Error, reset: () => void) {
   return (
     <div class="mx-auto max-w-md p-8 text-center space-y-3">
-      <h1 class="text-xl font-medium text-gray-950 dark:text-gray-50">Something went wrong</h1>
-      <p class="text-gray-600 dark:text-gray-400">{err.message}</p>
+      <h1 class="text-xl font-medium text-[var(--text-h)]">Something went wrong</h1>
+      <p class="text-[var(--text)]">{err.message}</p>
       <button
         type="button"
         onClick={reset}
-        class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+        class="rounded-[var(--radius-button)] bg-[var(--color-brand-500)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-brand-700)]"
       >
         Try again
       </button>
@@ -47,17 +46,17 @@ function Root(props: ParentProps) {
 
 function MainLayout(props: ParentProps) {
   return (
-    <Layout>
+    <BaseLayout>
       <Suspense fallback={<PageLoading />}>{props.children}</Suspense>
-    </Layout>
+    </BaseLayout>
   )
 }
 
 function LoginLayout(props: ParentProps) {
   return (
-    <AuthLayout>
+    <BaseLayout showNav={false}>
       <Suspense fallback={<PageLoading />}>{props.children}</Suspense>
-    </AuthLayout>
+    </BaseLayout>
   )
 }
 
