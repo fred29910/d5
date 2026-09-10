@@ -13,21 +13,29 @@ export default function Dashboard() {
   }
 
   return (
-    <section class="space-y-4">
-      <h1 class="text-2xl font-medium tracking-tight text-gray-950 dark:text-gray-50">Dashboard</h1>
+    <section class="space-y-6 px-4 md:px-6 lg:px-8">
+      <h1 class="text-2xl md:text-3xl lg:text-4xl font-medium tracking-tight text-gray-950 dark:text-gray-50">Dashboard</h1>
       <Show
         when={auth.state.user}
         fallback={<p class="text-gray-600 dark:text-gray-400">No user session (should not happen behind guard).</p>}
       >
         {(user) => (
-          <p class="text-gray-600 dark:text-gray-400">
-            Signed in as <span class="font-medium text-gray-950 dark:text-gray-50">{user().name}</span> ({user().email})
-          </p>
+          <div class="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-6">
+            <div class="card p-6 text-left">
+              <h2 class="text-lg font-medium text-gray-950 dark:text-gray-50 mb-2">Profile</h2>
+              <p class="text-sm text-gray-600 dark:text-gray-400">
+                Signed in as <span class="font-medium text-gray-950 dark:text-gray-50">{user().name}</span> ({user().email})
+              </p>
+            </div>
+            <div class="card p-6 text-left">
+              <h2 class="text-lg font-medium text-gray-950 dark:text-gray-50 mb-2">Actions</h2>
+              <Button variant="ghost" onClick={onLogout} class="w-full justify-start text-left">
+                Sign out
+              </Button>
+            </div>
+          </div>
         )}
       </Show>
-      <Button variant="ghost" onClick={onLogout}>
-        Sign out
-      </Button>
     </section>
   )
 }
