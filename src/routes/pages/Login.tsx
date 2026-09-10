@@ -19,9 +19,9 @@ export default function Login() {
   }
 
   return (
-    <section class="flex w-full items-center justify-center">
-      <div class="mx-auto w-full max-w-sm rounded-xl border border-gray-200 dark:border-white/10 p-6 shadow-sm bg-white dark:bg-white/5 space-y-4">
-        <h1 class="text-2xl font-medium tracking-tight text-gray-950 dark:text-gray-50">Login</h1>
+    <section class="flex w-full items-center justify-center px-4 md:px-6 lg:px-8 min-w-0">
+      <div class="mx-auto w-full max-w-sm rounded-xl border border-gray-200 dark:border-white/10 p-6 shadow-sm bg-white dark:bg-white/5 space-y-4 overflow-hidden">
+        <h1 class="text-2xl md:text-3xl lg:text-4xl font-medium tracking-tight text-gray-950 dark:text-gray-50 truncate">Login</h1>
         <form onSubmit={onSubmit} class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-950 dark:text-gray-50">
